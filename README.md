@@ -1,8 +1,8 @@
 - 👋 Hi, I’m @shrijay-kalambe
 - 👀 I’m interested in Learning New Things
 - 🌱 I’m currently learning Data Science
-- 💞️ I’m looking to collaborate on Different Data Analysis Projects
-- 📫 How to reach me Email: Shrikal99@gmail.com Mob:+919503575664
+- 💞️ I’m looking to collaborate on Different Data Analysis Project
+- This is the edited version
 
 <!---
 shrijay-kalambe/shrijay-kalambe is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
