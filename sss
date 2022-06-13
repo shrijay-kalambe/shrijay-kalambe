@@ -1,0 +1,245 @@
+from numpy import *
+from math import sqrt
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import random
+
+
+voR=np.eye(3)
+voT=np.array([[0],[0],[0]])#print("voT",voT.shape)
+ipos=np.array([[0],[0],[0]])
+truth=np.matrix([[0,0,0]])
+myArray = []
+fo = open("/home/omega/kit/data_odometry_poses/dataset/poses/00.txt", "r")
+for line in fo:
+    for nbr in line.split():
+        myArray.append(float(nbr))
+myArray=np.array(myArray)
+w= myArray.reshape((4541,12))
+for g in range(len(w)):
+    w1=w[g,:].reshape((3,4))
+    tt=np.matrix(w1[:,3])
+    truth = np.vstack((truth, tt))
+#f=plt.figure(1)
+#plt.plot(truth[:,0],truth[:,2])
+
+# Input: expects Nx3 matrix of points
+# Returns R,t     # R = 3x3 rotation matrix   # t = 3x1 column vector
+def rigid_transform_3D(A, B):
+    assert len(A) == len(B)
+
+    N = A.shape[0]  # total points
+    centroid_A = np.matrix(mean(A, axis=0))
+    centroid_B = np.matrix(mean(B, axis=0))
+    #print("CA",centroid_A.shape)
+    #print("CB",centroid_B.shape)
+        # centre the points
+    AA = A - tile(centroid_A, (N, 1))
+    BB = B - tile(centroid_B, (N, 1))
+    #print("AA", AA)
+    #print("BB", BB)
+        # dot is matrix multiplication for array
+    H = np.dot(np.transpose(AA),BB)
+    #print("H", H)
+    U, S, Vt = linalg.svd(H)
+
+    R = np.transpose(Vt) * np.transpose(U)
+    #print("R",R.shape)
+        # special reflection case
+    if np.linalg.det(R) < 0:
+        print("Reflection detected")
+        #R[::3] = -R[::3]
+        Vt[2, :] *= -1
+        R = Vt.T * U.T
+        R = np.transpose(Vt) * np.transpose(U)
+        print("R",R.shape)
+
+    t = -R * centroid_A.T + centroid_B.T
+
+    return R, t
+
+
+count = 0
+while count < 400:
+    #current image pair
+    filename=str(count).zfill(6)
+    left_img=cv2.imread('/home/omega/kit/00/image_0/{}.png'.format(filename))
+    right_img=cv2.imread('/home/omega/kit/00/image_1/{}.png'.format(filename))
+   #next image pair
+    filename1=str(count+1).zfill(6)
+    left_img_nxt=cv2.imread('/home/omega/kit/00/image_0/{}.png'.format(filename1))
+    right_img_nxt=cv2.imread('/home/omega/kit/00/image_1/{}.png'.format(filename1))
+
+    count += 1
+
+    #Create Detector and Descriptor
+    surf=cv2.xfeatures2d.SURF_create(300,2)
+    #find keypts n descriptors
+    (k1,d1)=surf.detectAndCompute(left_img,None)
+    (k2,d2)=surf.detectAndCompute(right_img,None)
+
+    #create matcher
+    bf=cv2.BFMatcher(cv2.NORM_L2,True)
+    #find matches between left n right image
+    matches=bf.match(d1,d2)
+    matches=sorted(matches,key=lambda val: val.distance)
+    list_k1=[]
+    list_k2=[]
+
+    for i in matches:
+        left_img_idx=i.queryIdx
+        right_img_idx=i.trainIdx
+        (x1,y1)=k1[left_img_idx].pt
+        (x2,y2)=k2[right_img_idx].pt
+        list_k1.append((x1,y1))
+        list_k2.append((x2,y2))
+        Ar1=np.asarray(list_k1)
+        Ar2=np.asarray(list_k2)
+    a=Ar1.T
+    b=Ar2.T
+
+    des_1 = [d1[mat.queryIdx] for mat in matches]
+    des_2 = [d2[mat.trainIdx] for mat in matches]
+    des1 = np.asarray(des_1)
+    des2 = np.asarray(des_2)
+    #print("des1",des1)
+    #print("des2",des2)
+
+#####################################################
+
+    (k1_nxt,d1_nxt)=surf.detectAndCompute(left_img_nxt,None)
+    (k2_nxt,d2_nxt)=surf.detectAndCompute(right_img_nxt,None)
+    matches_nx=bf.match(d1_nxt,d2_nxt)
+    matches_nx=sorted(matches_nx,key=lambda val: val.distance)
+
+    list_k1_nx = []
+    list_k2_nx = []
+
+    for m in matches_nx:
+        left_nxt_idx = m.queryIdx
+        right_nxt_idx = m.trainIdx
+        (x3, y3) = k1_nxt[left_nxt_idx].pt
+        (x4, y4) = k2_nxt[right_nxt_idx].pt
+        list_k1_nx.append((x3, y3))
+        list_k2_nx.append((x4, y4))
+        Ar4 = np.asarray(list_k1_nx)
+        Ar5 = np.asarray(list_k2_nx)
+    d = Ar4.T
+    e = Ar5.T
+
+    des_3 = [d1_nxt[mat.queryIdx] for mat in matches_nx]
+    des_4 = [d2_nxt[mat.trainIdx] for mat in matches_nx]
+    des3 = np.asarray(des_3)
+    des4 = np.asarray(des_4)
+
+    matches_if=bf.match(des1,des3)
+    matches_if=sorted(matches_if,key=lambda val2:val2.distance)
+    list1=[]
+    list2=[]
+    list3=[]
+    list4=[]
+
+    for x in matches_if:
+        prev_l=x.queryIdx
+        cur_l=x.trainIdx
+        (p1, q1) =Ar1[prev_l]
+        (p2, q2) =Ar2[prev_l]
+        (p3, q3) =Ar4[cur_l]
+        (p4, q4) =Ar5[cur_l]
+        list1.append((p1, q1))
+        list2.append((p2, q2))
+        list3.append((p3, q3))
+        list4.append((p4, q4))
+
+    Ar6 = np.asarray(list1).T
+    Ar7 = np.asarray(list2).T
+    Ar8 = np.asarray(list3).T
+    Ar9 = np.asarray(list4).T
+    #print(Ar6[:5]);print(Ar7[:5]);print(Ar8[:5]);print(Ar9[:5])
+
+    P0 = np.array([[7.188560000000e+02, 0.000000000000e+00, 6.071928000000e+02, 0.000000000000e+00]
+                      , [0.000000000000e+00, 7.188560000000e+02, 1.852157000000e+02, 0.000000000000e+00]
+                      , [0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 0.000000000000e+00]])
+
+    P1 = np.array([[7.188560000000e+02, 0.000000000000e+00, 6.071928000000e+02, -3.861448000000e+02]
+                      , [0.000000000000e+00, 7.188560000000e+02, 1.852157000000e+02, 0.000000000000e+00]
+                      , [0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 0.000000000000e+00]])
+
+    B = cv2.triangulatePoints(P0, P1, Ar6, Ar7)
+    A = cv2.triangulatePoints(P0, P1, Ar8, Ar9)
+    A /= A[3]
+    B /= B[3]
+    A = A[:3].T
+    B = B[:3].T
+
+    #X=np.concatenate((A.T,B.T),axis=0)
+    #X=X.T
+    #bb = np.random.randint(0, X.shape[0], 5)
+    #Xn = X[bb]
+    #Xn1 = np.matrix(Xn[:, :3])
+    #Xn2 = np.matrix(Xn[:, -3:])
+    itr = 20
+    num = len(A)
+    threshold=5
+
+    R, t = rigid_transform_3D(A, B)
+    ######################################  look at this Address this issue  ############
+    # recover the transformation
+    A2 = (R * A.T) + tile(t, (1, num))
+    A2 = A2.T
+    #print("A2",A2)
+    # Find the error
+    err = A2 - B
+    #("B",B)
+    #print("err",err)
+
+    err = multiply(err, err)
+    err = sum(err)
+    rmse = sqrt(err / num)
+    print("rmse",rmse)
+    if rmse <= 45:
+        voR = R * voR
+        # print("voR\n",voR)
+        voT = R * voT + t
+        pos = -voR.transpose() * voT
+        # print("pos",pos)
+        pos1 = np.squeeze(np.asarray(pos))
+        pos2 = pos1.reshape((3, 1))
+        ipos = np.hstack((ipos, pos2))
+    k=(ipos.shape)
+    print("ipos length goodfit",k)
+
+
+
+    """
+    temp= rmse < threshold
+    K = sum(temp,axis=2)
+    n1 = np.where(K == K.max())
+    k1 = str.find(n1, 1)
+    Inliers = X(:, temp[k1,:])
+    """
+
+    #print("pos2",pos2)
+
+
+
+
+
+
+plt.plot(ipos[0, :], ipos[2, :],truth[:,0],truth[:,2])
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
