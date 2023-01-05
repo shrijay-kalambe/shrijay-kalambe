@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @shrijay-kalambe
 - 👀 I’m interested in Learning New Things
-- 🌱 I’m currently learning Data Science
-- 💞️ I’m looking to collaborate on Different Data Analysis Project
+- 🌱 I’m currently learning Fullstack Development
+- 💞️ I’m looking to collaborate on Different Web Development Project
 - This is the edited version
 
 <!---
